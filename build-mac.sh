@@ -46,6 +46,7 @@ jpackage \
     --java-options "-Xmx2g" \
     --mac-package-name "VirtualCloset" \
     --vendor "Virtual Closet" \
+    --add-modules javafx.controls,javafx.graphics,javafx.base \
     $ICON_ARG
 
 echo ""
