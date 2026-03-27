@@ -17,6 +17,12 @@ echo "📦 Building JAR..."
 mvn clean package -DskipTests
 
 echo ""
+echo "🧹 Preparing input folder..."
+rm -rf target/jpackage-input target/app
+mkdir -p target/jpackage-input
+cp target/$MAIN_JAR target/jpackage-input/
+
+echo ""
 echo "🍎 Creating Mac app bundle..."
 
 # Check if icon exists
@@ -33,7 +39,7 @@ jpackage \
     --type app-image \
     --name "$APP_NAME" \
     --app-version "$VERSION" \
-    --input target \
+    --input target/jpackage-input \
     --main-jar "$MAIN_JAR" \
     --main-class "$MAIN_CLASS" \
     --dest target/app \
