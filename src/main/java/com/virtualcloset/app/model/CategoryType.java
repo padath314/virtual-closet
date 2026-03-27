@@ -6,6 +6,7 @@ public enum CategoryType {
     SKIRTS(false, 25, "Skirts"),
     DRESSES(false, 30, "Dresses"),
     JACKETS(false, 35, "Jackets"),
+    TIGHTS(false, 36, "Tights"),
     SOCKS(false, 38, "Socks"),
     SHOES(false, 40, "Shoes"),
     ACCESSORIES(true, 50, "Accessories");
@@ -39,6 +40,7 @@ public enum CategoryType {
             case "skirt", "skirts" -> SKIRTS;
             case "dresses" -> DRESSES;
             case "jacket", "jackets" -> JACKETS;
+            case "tights" -> TIGHTS;
             case "socks" -> SOCKS;
             case "shoes" -> SHOES;
             case "accessories" -> ACCESSORIES;

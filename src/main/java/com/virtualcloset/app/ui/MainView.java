@@ -4,22 +4,25 @@ import com.virtualcloset.app.model.CategoryType;
 import com.virtualcloset.app.model.ClothingItem;
 import com.virtualcloset.app.model.Outfit;
 import com.virtualcloset.app.service.ClosetService;
-import com.virtualcloset.app.service.ResourceUtils;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Background;
@@ -40,8 +43,14 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
-import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -52,6 +61,7 @@ import java.util.stream.Collectors;
 
 public class MainView {
     private final ClosetService closetService;
+    private Stage stage;
     private final StackPane previewPane = new StackPane();
     private final Label selectionSummary = new Label();
     private final TextField outfitNameField = new TextField();
@@ -66,6 +76,10 @@ public class MainView {
 
     public MainView(ClosetService closetService) {
         this.closetService = closetService;
+    }
+
+    public void setStage(Stage stage) {
+        this.stage = stage;
     }
 
     public Parent createContent() {
@@ -127,7 +141,15 @@ public class MainView {
                 populateItemsPane(itemsPane, filtered);
             });
 
-            VBox tabContent = new VBox(8, tabScroll, categorySearch);
+            Button importButton = new Button("+ Import");
+            importButton.setStyle("-fx-background-color: #7a5cff; -fx-text-fill: #ffffff; -fx-background-radius: 8; -fx-cursor: hand;");
+            importButton.setOnAction(event -> importItemToCategory(categoryType));
+
+            HBox searchRow = new HBox(8, categorySearch, importButton);
+            searchRow.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(categorySearch, Priority.ALWAYS);
+
+            VBox tabContent = new VBox(8, tabScroll, searchRow);
             tabContent.setPadding(new Insets(8, 4, 4, 4));
             VBox.setVgrow(tabScroll, Priority.ALWAYS);
 
@@ -289,9 +311,13 @@ public class MainView {
         card.setPrefWidth(126);
         applySelectionStyle(card, item);
         card.setOnMouseClicked(event -> {
-            closetService.toggleSelection(item);
-            refreshPreview();
-            refreshAllItemPanes();
+            if (event.getButton() == javafx.scene.input.MouseButton.SECONDARY) {
+                showItemContextMenu(card, item, event.getScreenX(), event.getScreenY());
+            } else {
+                closetService.toggleSelection(item);
+                refreshPreview();
+                refreshAllItemPanes();
+            }
         });
         return card;
     }
@@ -361,7 +387,7 @@ public class MainView {
         Label title = new Label("Add your base model PNG");
         title.setFont(Font.font("System", FontWeight.BOLD, 18));
         title.setTextFill(Color.web("#f0eeff"));
-        Label details = new Label("Expected path: src/main/resources/closet-data/base/base.png");
+        Label details = new Label("Place base.png at: ~/.virtual-closet/closet-data/base/base.png");
         details.setTextFill(Color.web("#a89ec5"));
         emptyState.getChildren().addAll(title, details);
         previewPane.getChildren().add(emptyState);
@@ -393,17 +419,21 @@ public class MainView {
         showInfo("Outfit saved", "Saved \"" + outfitName + "\" to your outfit list.");
     }
 
-    private Optional<Image> loadCached(String resourcePath, double w, double h) {
-        if (resourcePath == null || !ResourceUtils.resourceExists(resourcePath)) {
+    private Optional<Image> loadCached(String filePath, double w, double h) {
+        if (filePath == null) {
             return Optional.empty();
         }
-        String key = resourcePath + "@" + (int) w + "x" + (int) h;
+        Path path = Path.of(filePath);
+        if (!Files.exists(path)) {
+            return Optional.empty();
+        }
+        String key = filePath + "@" + (int) w + "x" + (int) h;
         Image cached = imageCache.get(key);
         if (cached != null) {
             return Optional.of(cached);
         }
-        try (InputStream is = ResourceUtils.openResource(resourcePath)) {
-            Image image = (w > 0 || h > 0) ? new Image(is, w, h, true, true) : new Image(is);
+        try (FileInputStream fis = new FileInputStream(path.toFile())) {
+            Image image = (w > 0 || h > 0) ? new Image(fis, w, h, true, true) : new Image(fis);
             imageCache.put(key, image);
             return Optional.of(image);
         } catch (Exception e) {
@@ -415,6 +445,79 @@ public class MainView {
         boolean selected = closetService.isSelected(item);
         card.setBackground(new Background(new BackgroundFill(selected ? Color.web("#2d2550") : Color.web("#27243a"), new CornerRadii(14), Insets.EMPTY)));
         card.setBorder(new Border(new BorderStroke(selected ? Color.web("#9d80ff") : Color.web("#3a3550"), BorderStrokeStyle.SOLID, new CornerRadii(14), new BorderWidths(selected ? 2 : 1))));
+    }
+
+    private void importItemToCategory(CategoryType category) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Import PNG to " + category.getDisplayName());
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Images", "*.png"));
+        File file = fileChooser.showOpenDialog(stage);
+        if (file == null) return;
+
+        TextInputDialog dialog = new TextInputDialog(file.getName().replace(".png", "").replace("-", " ").replace("_", " "));
+        dialog.setTitle("Import Item");
+        dialog.setHeaderText("Enter a name for this item:");
+        dialog.setContentText("Name:");
+        Optional<String> result = dialog.showAndWait();
+
+        result.ifPresent(name -> {
+            try {
+                closetService.importItem(file.toPath(), category, name);
+                imageCache.clear(); // Clear cache to reload
+                refreshAllItemPanes();
+                showInfo("Import successful", "Added \"" + name + "\" to " + category.getDisplayName());
+            } catch (IOException e) {
+                showError("Import failed", "Could not import the file: " + e.getMessage());
+            }
+        });
+    }
+
+    private void showItemContextMenu(VBox card, ClothingItem item, double screenX, double screenY) {
+        ContextMenu contextMenu = new ContextMenu();
+
+        MenuItem renameItem = new MenuItem("Rename");
+        renameItem.setOnAction(event -> {
+            TextInputDialog dialog = new TextInputDialog(item.getName());
+            dialog.setTitle("Rename Item");
+            dialog.setHeaderText("Enter a new name:");
+            dialog.setContentText("Name:");
+            dialog.showAndWait().ifPresent(newName -> {
+                closetService.renameItem(item, newName);
+                imageCache.clear();
+                refreshAllItemPanes();
+            });
+        });
+
+        MenuItem deleteItem = new MenuItem("Delete");
+        deleteItem.setOnAction(event -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Delete Item");
+            confirm.setHeaderText("Delete \"" + item.getName() + "\"?");
+            confirm.setContentText("This will permanently remove the PNG file.");
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    try {
+                        closetService.deleteItem(item);
+                        imageCache.clear();
+                        refreshPreview();
+                        refreshAllItemPanes();
+                    } catch (IOException e) {
+                        showError("Delete failed", "Could not delete the item: " + e.getMessage());
+                    }
+                }
+            });
+        });
+
+        contextMenu.getItems().addAll(renameItem, deleteItem);
+        contextMenu.show(card, screenX, screenY);
+    }
+
+    private void showError(String header, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Virtual Closet");
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 
     private Label sectionTitle(String value) {

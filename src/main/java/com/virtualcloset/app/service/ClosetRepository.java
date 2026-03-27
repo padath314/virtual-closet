@@ -8,10 +8,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -23,50 +22,62 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class ClosetRepository {
-    private static final String ROOT = "/closet-data";
-    private static final String BASE = ROOT + "/base/base.png";
-    private static final String WARDROBE_ROOT = ROOT + "/wardrobe";
-    private static final String METADATA_FILE = ROOT + "/metadata/items.json";
-
     private final ObjectMapper objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+
+    public ClosetRepository() {
+        // Initialize external data folder on startup
+        try {
+            DataFolder.initializeIfNeeded();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to initialize data folder", e);
+        }
+    }
 
     public ClosetData loadClosetData() {
         Map<String, ItemMetadata> metadataById = loadMetadataById();
         List<ClothingItem> items = new ArrayList<>();
         try {
-            Path wardrobePath = ResourceUtils.getResourcePath(WARDROBE_ROOT);
-            Files.list(wardrobePath)
-                    .filter(Files::isDirectory)
-                    .sorted()
-                    .forEach(categoryPath -> loadCategoryItems(categoryPath, metadataById, items));
-        } catch (IOException | URISyntaxException exception) {
+            Path wardrobePath = DataFolder.getWardrobePath();
+            if (Files.exists(wardrobePath)) {
+                Files.list(wardrobePath)
+                        .filter(Files::isDirectory)
+                        .sorted()
+                        .forEach(categoryPath -> loadCategoryItems(categoryPath, metadataById, items));
+            }
+        } catch (IOException exception) {
             throw new IllegalStateException("Unable to load closet data", exception);
         }
         items.sort(Comparator.comparingInt(ClothingItem::getLayerOrder).thenComparing(ClothingItem::getName, String.CASE_INSENSITIVE_ORDER));
-        return new ClosetData(BASE, items);
+        String basePath = DataFolder.getBasePath().toString();
+        return new ClosetData(basePath, items);
     }
 
     private void loadCategoryItems(Path categoryPath,
                                    Map<String, ItemMetadata> metadataById,
                                    List<ClothingItem> items) {
         String categoryFolder = categoryPath.getFileName().toString();
-        CategoryType categoryType = CategoryType.fromFolderName(categoryFolder);
+        CategoryType categoryType;
+        try {
+            categoryType = CategoryType.fromFolderName(categoryFolder);
+        } catch (IllegalArgumentException e) {
+            // Skip unknown category folders
+            return;
+        }
         try {
             Files.list(categoryPath)
-                    .filter(ResourceUtils::isPng)
+                    .filter(this::isPng)
                     .sorted()
                     .forEach(itemPath -> {
                         String fileName = itemPath.getFileName().toString();
                         String id = categoryFolder + "/" + fileName.substring(0, fileName.length() - 4);
                         ItemMetadata metadata = metadataById.getOrDefault(id, ItemMetadata.defaultFor(id, categoryType, fileName));
-                        String imagePath = "/closet-data/wardrobe/" + categoryFolder + "/" + fileName;
-                        String thumbnailPath = imagePath;
+                        String imagePath = itemPath.toAbsolutePath().toString();
                         items.add(new ClothingItem(
                                 id,
                                 metadata.name(),
                                 categoryType,
                                 imagePath,
-                                thumbnailPath,
+                                imagePath,
                                 metadata.colors(),
                                 metadata.tags(),
                                 metadata.layerOrder() == null ? categoryType.getLayerOrder() : metadata.layerOrder()
@@ -77,28 +88,138 @@ public class ClosetRepository {
         }
     }
 
-    public void saveMetadataTemplate(Path outputFile) {
-        ClosetData closetData = loadClosetData();
-        List<ItemMetadata> metadata = closetData.getItems().stream()
-                .map(item -> new ItemMetadata(item.getId(), item.getName(), item.getCategory().name(), item.getColors(), item.getTags(), item.getLayerOrder()))
-                .collect(Collectors.toList());
+    private boolean isPng(Path path) {
+        return Files.isRegularFile(path) && path.getFileName().toString().toLowerCase().endsWith(".png");
+    }
+
+    /**
+     * Import a new clothing item from an external PNG file.
+     */
+    public ClothingItem importItem(Path sourceFile, CategoryType category, String name) throws IOException {
+        String categoryFolder = category.name().toLowerCase();
+        Path targetDir = DataFolder.getCategoryPath(categoryFolder);
+        Files.createDirectories(targetDir);
+
+        // Generate a safe filename
+        String safeName = name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+        if (safeName.isEmpty()) safeName = "item";
+        String fileName = safeName + ".png";
+        Path targetPath = targetDir.resolve(fileName);
+
+        // Avoid overwriting - add number suffix if needed
+        int counter = 1;
+        while (Files.exists(targetPath)) {
+            fileName = safeName + "-" + counter + ".png";
+            targetPath = targetDir.resolve(fileName);
+            counter++;
+        }
+
+        // Copy the file
+        Files.copy(sourceFile, targetPath, StandardCopyOption.COPY_ATTRIBUTES);
+
+        // Create the item
+        String id = categoryFolder + "/" + fileName.substring(0, fileName.length() - 4);
+        ClothingItem item = new ClothingItem(
+                id,
+                name,
+                category,
+                targetPath.toAbsolutePath().toString(),
+                targetPath.toAbsolutePath().toString(),
+                new ArrayList<>(),
+                new ArrayList<>(),
+                category.getLayerOrder()
+        );
+
+        // Save to metadata
+        addItemMetadata(item);
+
+        return item;
+    }
+
+    /**
+     * Rename an existing item.
+     */
+    public void renameItem(ClothingItem item, String newName) {
+        Map<String, ItemMetadata> metadataById = loadMetadataById();
+        ItemMetadata existing = metadataById.get(item.getId());
+        ItemMetadata updated = new ItemMetadata(
+                item.getId(),
+                newName,
+                item.getCategory().name(),
+                existing != null ? existing.colors() : item.getColors(),
+                existing != null ? existing.tags() : item.getTags(),
+                item.getLayerOrder()
+        );
+        metadataById.put(item.getId(), updated);
+        saveMetadata(metadataById);
+    }
+
+    /**
+     * Update item tags and colors.
+     */
+    public void updateItemMetadata(ClothingItem item, List<String> colors, List<String> tags) {
+        Map<String, ItemMetadata> metadataById = loadMetadataById();
+        ItemMetadata updated = new ItemMetadata(
+                item.getId(),
+                item.getName(),
+                item.getCategory().name(),
+                colors,
+                tags,
+                item.getLayerOrder()
+        );
+        metadataById.put(item.getId(), updated);
+        saveMetadata(metadataById);
+    }
+
+    /**
+     * Delete an item (removes PNG file and metadata).
+     */
+    public void deleteItem(ClothingItem item) throws IOException {
+        // Delete the PNG file
+        Path pngPath = Path.of(item.getImagePath());
+        Files.deleteIfExists(pngPath);
+
+        // Remove from metadata
+        Map<String, ItemMetadata> metadataById = loadMetadataById();
+        metadataById.remove(item.getId());
+        saveMetadata(metadataById);
+    }
+
+    private void addItemMetadata(ClothingItem item) {
+        Map<String, ItemMetadata> metadataById = loadMetadataById();
+        ItemMetadata metadata = new ItemMetadata(
+                item.getId(),
+                item.getName(),
+                item.getCategory().name(),
+                item.getColors(),
+                item.getTags(),
+                item.getLayerOrder()
+        );
+        metadataById.put(item.getId(), metadata);
+        saveMetadata(metadataById);
+    }
+
+    private void saveMetadata(Map<String, ItemMetadata> metadataById) {
         try {
-            Files.createDirectories(outputFile.getParent());
-            objectMapper.writeValue(outputFile.toFile(), metadata);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to save metadata template", exception);
+            Path metadataPath = DataFolder.getMetadataPath();
+            Files.createDirectories(metadataPath.getParent());
+            List<ItemMetadata> metadataList = new ArrayList<>(metadataById.values());
+            objectMapper.writeValue(metadataPath.toFile(), metadataList);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to save metadata", e);
         }
     }
 
     private Map<String, ItemMetadata> loadMetadataById() {
-        try (InputStream inputStream = ClosetRepository.class.getResourceAsStream(METADATA_FILE)) {
-            if (inputStream == null) {
+        try {
+            Path metadataPath = DataFolder.getMetadataPath();
+            if (!Files.exists(metadataPath)) {
                 return new HashMap<>();
             }
-            List<ItemMetadata> metadata = objectMapper.readValue(inputStream, new TypeReference<>() { });
+            List<ItemMetadata> metadata = objectMapper.readValue(metadataPath.toFile(), new TypeReference<>() { });
             return metadata.stream().collect(Collectors.toMap(ItemMetadata::id, value -> value, (left, right) -> right));
         } catch (IOException exception) {
-            throw new IllegalStateException("Unable to read metadata file", exception);
+            return new HashMap<>();
         }
     }
 

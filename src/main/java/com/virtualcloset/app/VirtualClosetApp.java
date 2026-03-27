@@ -13,6 +13,7 @@ public class VirtualClosetApp extends Application {
     public void start(Stage stage) {
         ClosetService closetService = new ClosetService(new ClosetRepository(), new OutfitStorage());
         MainView mainView = new MainView(closetService);
+        mainView.setStage(stage);
         Scene scene = new Scene(mainView.createContent(), 1400, 900);
         stage.setTitle("Virtual Closet");
         stage.setScene(scene);

@@ -80,29 +80,45 @@ Run:
 mvn javafx:run
 ```
 
-## Package later as a Mac app
+## Package as a Mac App (.app)
 
-On a Mac with JDK 21+:
+**Requirements:** macOS with JDK 21+ installed
 
-1. Build a runtime image:
+1. Build the JAR:
 
 ```bash
-mvn clean javafx:jlink
+mvn clean package
 ```
 
-2. Package as a clickable `.app` bundle with `jpackage`:
+2. Create the app bundle with jpackage:
 
 ```bash
 jpackage \
   --type app-image \
   --name "Virtual Closet" \
+  --app-version "1.0.0" \
   --input target \
-  --dest dist \
   --main-jar virtual-closet-1.0.0-SNAPSHOT.jar \
-  --main-class com.virtualcloset.app.VirtualClosetApp
+  --main-class com.virtualcloset.app.VirtualClosetApp \
+  --dest target/app \
+  --java-options "-Xmx2g" \
+  --mac-package-name "VirtualCloset"
 ```
 
-You can later add a macOS `.icns` icon with `--icon path/to/icon.icns`.
+3. Your app will be at `target/app/Virtual Closet.app`
+
+### Optional: Add a custom icon
+
+Add `--icon path/to/icon.icns` to the jpackage command.
+
+### Optional: Create a DMG
+
+```bash
+hdiutil create -volname "Virtual Closet" \
+  -srcfolder "target/app/Virtual Closet.app" \
+  -ov -format UDZO \
+  VirtualCloset.dmg
+```
 
 ## Notes
 

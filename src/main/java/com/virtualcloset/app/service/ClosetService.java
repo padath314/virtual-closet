@@ -5,6 +5,8 @@ import com.virtualcloset.app.model.ClothingItem;
 import com.virtualcloset.app.model.ClosetData;
 import com.virtualcloset.app.model.Outfit;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,12 +19,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class ClosetService {
-    private final ClosetData closetData;
+    private final ClosetRepository closetRepository;
+    private ClosetData closetData;
     private final OutfitStorage outfitStorage;
     private final Map<CategoryType, LinkedHashSet<String>> selectedItemIds = new EnumMap<>(CategoryType.class);
     private final List<Outfit> savedOutfits;
 
     public ClosetService(ClosetRepository closetRepository, OutfitStorage outfitStorage) {
+        this.closetRepository = closetRepository;
         this.closetData = closetRepository.loadClosetData();
         this.outfitStorage = outfitStorage;
         this.savedOutfits = new ArrayList<>(outfitStorage.loadOutfits());
@@ -125,5 +129,30 @@ public class ClosetService {
 
     private void persistOutfits() {
         outfitStorage.saveOutfits(savedOutfits);
+    }
+
+    // --- Item Management ---
+
+    public ClothingItem importItem(Path sourceFile, CategoryType category, String name) throws IOException {
+        ClothingItem newItem = closetRepository.importItem(sourceFile, category, name);
+        closetData.getItems().add(newItem);
+        return newItem;
+    }
+
+    public void renameItem(ClothingItem item, String newName) {
+        closetRepository.renameItem(item, newName);
+        // Reload to get updated data
+        reloadClosetData();
+    }
+
+    public void deleteItem(ClothingItem item) throws IOException {
+        closetRepository.deleteItem(item);
+        closetData.getItems().removeIf(i -> i.getId().equals(item.getId()));
+        // Also remove from selections
+        selectedItemIds.get(item.getCategory()).remove(item.getId());
+    }
+
+    public void reloadClosetData() {
+        this.closetData = closetRepository.loadClosetData();
     }
 }
