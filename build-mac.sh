@@ -45,7 +45,6 @@ jpackage \
     --dest target/app \
     --java-options "-Xmx2g" \
     --mac-package-name "VirtualCloset" \
-    --mac-sign false \
     --vendor "Virtual Closet" \
     $ICON_ARG
 
