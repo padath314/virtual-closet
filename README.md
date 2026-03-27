@@ -84,40 +84,31 @@ mvn javafx:run
 
 **Requirements:** macOS with JDK 21+ installed
 
-1. Build the JAR:
+### Quick build
 
 ```bash
-mvn clean package
+./build-mac.sh
 ```
 
-2. Create the app bundle with jpackage:
+Your app will be at `target/app/Virtual Closet.app`
+
+### Adding an app icon
+
+1. Create a 1024x1024 PNG icon
+2. Save it as `icon.icns` in the project root (use an online PNG to ICNS converter, or macOS Preview)
+3. Run `./build-mac.sh` again
+
+### Manual icon creation (optional)
+
+If you have a 1024x1024 PNG named `icon.png`:
 
 ```bash
-jpackage \
-  --type app-image \
-  --name "Virtual Closet" \
-  --app-version "1.0.0" \
-  --input target \
-  --main-jar virtual-closet-1.0.0-SNAPSHOT.jar \
-  --main-class com.virtualcloset.app.VirtualClosetApp \
-  --dest target/app \
-  --java-options "-Xmx2g" \
-  --mac-package-name "VirtualCloset"
-```
-
-3. Your app will be at `target/app/Virtual Closet.app`
-
-### Optional: Add a custom icon
-
-Add `--icon path/to/icon.icns` to the jpackage command.
-
-### Optional: Create a DMG
-
-```bash
-hdiutil create -volname "Virtual Closet" \
-  -srcfolder "target/app/Virtual Closet.app" \
-  -ov -format UDZO \
-  VirtualCloset.dmg
+mkdir MyIcon.iconset
+sips -z 512 512 icon.png --out MyIcon.iconset/icon_512x512.png
+sips -z 256 256 icon.png --out MyIcon.iconset/icon_256x256.png
+sips -z 128 128 icon.png --out MyIcon.iconset/icon_128x128.png
+iconutil -c icns MyIcon.iconset -o icon.icns
+rm -rf MyIcon.iconset
 ```
 
 ## Notes
