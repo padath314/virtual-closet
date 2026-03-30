@@ -1,0 +1,169 @@
+/* Dark theme for Virtual Closet */
+
+.root {
+    -fx-base: #1e1c2b;
+    -fx-background: #12111a;
+    -fx-control-inner-background: #27243a;
+    -fx-accent: #7a5cff;
+    -fx-focus-color: #9d80ff;
+    -fx-faint-focus-color: #7a5cff22;
+}
+
+/* Tab Pane */
+.tab-pane {
+    -fx-background-color: #1e1c2b;
+}
+
+.tab-pane > .tab-header-area {
+    -fx-background-color: #1e1c2b;
+    -fx-padding: 0 0 0 0;
+}
+
+.tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: #1e1c2b;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: #27243a;
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 6 14;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-background-color: #3a3550;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: #a89ec5;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: #f0eeff;
+}
+
+.tab-pane:focused > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+/* ScrollPane */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar {
+    -fx-background-color: #1e1c2b;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #3a3550;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #4a4565;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #3a3550;
+    -fx-shape: "";
+    -fx-padding: 0;
+}
+
+/* ListView */
+.list-view {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 4;
+}
+
+.list-view .list-cell:filled:selected {
+    -fx-background-color: #2d2550;
+}
+
+/* TextField */
+.text-field {
+    -fx-background-color: #27243a;
+    -fx-text-fill: #f0eeff;
+    -fx-prompt-text-fill: #a89ec5;
+    -fx-background-radius: 8;
+    -fx-border-color: #3a3550;
+    -fx-border-radius: 8;
+}
+
+.text-field:focused {
+    -fx-border-color: #7a5cff;
+}
+
+/* Button */
+.button {
+    -fx-background-color: #3a3550;
+    -fx-text-fill: #f0eeff;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #4a4565;
+}
+
+.button:pressed {
+    -fx-background-color: #2d2550;
+}
+
+/* CheckBox */
+.check-box {
+    -fx-text-fill: #f0eeff;
+}
+
+.check-box .box {
+    -fx-background-color: #27243a;
+    -fx-border-color: #3a3550;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #7a5cff;
+    -fx-border-color: #7a5cff;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: #ffffff;
+}
+
+/* Alert dialogs */
+.dialog-pane {
+    -fx-background-color: #1e1c2b;
+}
+
+.dialog-pane > .content.label {
+    -fx-text-fill: #f0eeff;
+}
+
+.dialog-pane > .button-bar > .container {
+    -fx-background-color: #1e1c2b;
+}
+
+.dialog-pane:header .header-panel {
+    -fx-background-color: #27243a;
+}
+
+.dialog-pane:header .header-panel .label {
+    -fx-text-fill: #f0eeff;
+}

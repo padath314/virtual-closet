@@ -1,0 +1,18 @@
+[
+  {
+    "id": "tops/example-top",
+    "name": "Example Top",
+    "category": "TOPS",
+    "colors": ["white", "neutral"],
+    "tags": ["casual", "summer", "basic"],
+    "layerOrder": 10
+  },
+  {
+    "id": "accessories/example-bag",
+    "name": "Example Bag",
+    "category": "ACCESSORIES",
+    "colors": ["black"],
+    "tags": ["bag", "classic"],
+    "layerOrder": 50
+  }
+]
