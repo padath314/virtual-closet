@@ -63,17 +63,23 @@ public class ClosetRepository {
             // Skip unknown category folders
             return;
         }
+        
+        // For tops folder, load items into both TOPS1 and TOPS2 categories
+        boolean isTopsFolder = categoryFolder.equalsIgnoreCase("tops");
+        
         try {
             Files.list(categoryPath)
                     .filter(this::isPng)
                     .sorted()
                     .forEach(itemPath -> {
                         String fileName = itemPath.getFileName().toString();
-                        String id = categoryFolder + "/" + fileName.substring(0, fileName.length() - 4);
-                        ItemMetadata metadata = metadataById.getOrDefault(id, ItemMetadata.defaultFor(id, categoryType, fileName));
+                        String baseId = categoryFolder + "/" + fileName.substring(0, fileName.length() - 4);
+                        ItemMetadata metadata = metadataById.getOrDefault(baseId, ItemMetadata.defaultFor(baseId, categoryType, fileName));
                         String imagePath = itemPath.toAbsolutePath().toString();
+                        
+                        // Add item to the primary category (TOPS1 for tops)
                         items.add(new ClothingItem(
-                                id,
+                                baseId,
                                 metadata.name(),
                                 categoryType,
                                 imagePath,
@@ -82,6 +88,21 @@ public class ClosetRepository {
                                 metadata.tags(),
                                 metadata.layerOrder() == null ? categoryType.getLayerOrder() : metadata.layerOrder()
                         ));
+                        
+                        // For tops, also add to TOPS2 with different ID and layer order
+                        if (isTopsFolder) {
+                            String tops2Id = baseId + ":top2";
+                            items.add(new ClothingItem(
+                                    tops2Id,
+                                    metadata.name(),
+                                    CategoryType.TOPS2,
+                                    imagePath,
+                                    imagePath,
+                                    metadata.colors(),
+                                    metadata.tags(),
+                                    CategoryType.TOPS2.getLayerOrder()
+                            ));
+                        }
                     });
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to load items from category " + categoryFolder, exception);
@@ -96,7 +117,7 @@ public class ClosetRepository {
      * Import a new clothing item from an external PNG file.
      */
     public ClothingItem importItem(Path sourceFile, CategoryType category, String name) throws IOException {
-        String categoryFolder = category.name().toLowerCase();
+        String categoryFolder = category.getFolderName();
         Path targetDir = DataFolder.getCategoryPath(categoryFolder);
         Files.createDirectories(targetDir);
 
